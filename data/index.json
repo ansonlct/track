@@ -1,0 +1,9 @@
+{
+  "dates": [
+    "demo"
+  ],
+  "default_date": "demo",
+  "files": {
+    "demo": "demo.json"
+  }
+}
