@@ -115,7 +115,21 @@ def main():
     variants=conn.execute("""SELECT * FROM route_variants WHERE route IN ('272A','900')
                              ORDER BY route,bound,CAST(service_type AS INTEGER)""").fetchall()
 
-    result={"date":day.isoformat(),"generated_at":dt.datetime.now(HK).isoformat(timespec="seconds"),"routes":{}}
+    coverage_row=conn.execute("""SELECT MIN(observed_at), MAX(observed_at), COUNT(*)
+      FROM eta_snapshots WHERE observed_at>=? AND observed_at<?""",
+      (start.isoformat(),end.isoformat())).fetchone()
+    result={
+        "date":day.isoformat(),
+        "generated_at":dt.datetime.now(HK).isoformat(timespec="seconds"),
+        "source":"KMB / Transport Department Route ETA API",
+        "data_type":"ETA-based inferred arrival",
+        "coverage":{
+            "first_observed_at": coverage_row[0] if coverage_row else None,
+            "last_observed_at": coverage_row[1] if coverage_row else None,
+            "snapshot_rows": int(coverage_row[2] or 0) if coverage_row else 0,
+        },
+        "routes":{}
+    }
 
     for vr in variants:
         route,bound,st=vr["route"],vr["bound"],str(vr["service_type"])
@@ -190,7 +204,23 @@ def main():
 
     out=Path(args.out_dir); out.mkdir(parents=True,exist_ok=True)
     dayfile=out/f"{day.isoformat()}.json"
-    dayfile.write_text(json.dumps(result,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
+
+    # Avoid pointless Git commits when a completed historical day has not changed.
+    # generated_at is preserved unless actual route/coverage content changed.
+    should_write=True
+    if dayfile.exists():
+        try:
+            old=json.loads(dayfile.read_text(encoding="utf-8"))
+            same_payload=(old.get("routes")==result.get("routes") and
+                          old.get("coverage")==result.get("coverage") and
+                          old.get("source")==result.get("source") and
+                          old.get("data_type")==result.get("data_type"))
+            if same_payload:
+                should_write=False
+        except Exception:
+            pass
+    if should_write:
+        dayfile.write_text(json.dumps(result,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
 
     idxfile=out/"index.json"
     if idxfile.exists():

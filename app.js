@@ -2,6 +2,9 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const state = { index:null, day:null, route:null, variant:null, date:null };
 
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
 function mins(v){ return v == null ? "—" : `${Number(v).toFixed(v < 10 ? 1 : 0)}m`; }
 function hhmm(isoOrTime){
   if(!isoOrTime) return "—";
@@ -93,7 +96,7 @@ function renderKpis(v,segments){
     ["全程平均", mins(ds.avg), `${ds.n} 班有完整首尾站`],
     ["全程最快", mins(ds.min), ds.n?`最慢 ${mins(ds.max)}`:"暫無資料"],
     ["最慢路段", slow?mins(slow.avg):"—", slow?`${slow.from_name} → ${slow.to_name}`:"暫無資料"],
-  ].map(([l,vv,sub])=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${vv}</div><div class="kpi-sub">${sub}</div></div>`).join("");
+  ].map(([l,vv,sub])=>`<div class="kpi"><div class="kpi-label">${esc(l)}</div><div class="kpi-value">${esc(vv)}</div><div class="kpi-sub">${esc(sub)}</div></div>`).join("");
   $("#kpiGrid").innerHTML=html;
 }
 function renderRankList(el,segments,mode){
@@ -104,7 +107,7 @@ function renderRankList(el,segments,mode){
     <div class="rank-row">
       <div class="rank-num">${i+1}</div>
       <div class="rank-main">
-        <div class="rank-title">${s.from_name} → ${s.to_name}</div>
+        <div class="rank-title">${esc(s.from_name)} → ${esc(s.to_name)}</div>
         <div class="rank-meta">樣本 ${s.n} · 快 ${mins(s.min)} · 慢 ${mins(s.max)} · P90 ${mins(s.p90)}</div>
       </div>
       <div class="rank-value">${mode==="avg"?mins(s.avg):mins(s.range)}</div>
@@ -123,51 +126,83 @@ function renderSegments(v,segments){
     </div>
     ${arr.map(s=>`
       <div class="segment-row">
-        <div><div class="seg-name">${s.from_name}<br>→ ${s.to_name}</div><div class="seg-sub">#${s.from_seq}→#${s.to_seq} · n=${s.n||0}</div></div>
+        <div><div class="seg-name">${esc(s.from_name)}<br>→ ${esc(s.to_name)}</div><div class="seg-sub">#${esc(s.from_seq)}→#${esc(s.to_seq)} · n=${s.n||0}</div></div>
         <div class="metric"><strong>${mins(s.avg)}</strong><span>P90 ${mins(s.p90)}</span></div>
         <div class="metric"><strong>${mins(s.min)}</strong><span>min</span></div>
         <div class="metric"><strong>${mins(s.max)}</strong><span>max</span></div>
         <div class="metric"><strong>${mins(s.median)}</strong><span>median</span></div>
       </div>`).join("")}`;
 }
+function gapBetween(prev,cur){
+  if(!prev || !cur) return null;
+  const d=(new Date(cur)-new Date(prev))/60000;
+  return Number.isFinite(d)&&d>=0&&d<60 ? d : null;
+}
 function renderTrips(v){
   const stops=v.stops||[], trips=v.trips||[];
   $("#tripCountPill").textContent=`${trips.length} 班`;
+  $("#routeLegend").innerHTML=stops.length?`
+    <div class="legend-start"><strong>${esc(stops[0].name)}</strong><span>起點</span></div>
+    <div class="legend-arrow">→</div>
+    <div class="legend-end"><strong>${esc(stops[stops.length-1].name)}</strong><span>${stops.length} 個站</span></div>
+  `:"";
+
   $("#tripList").innerHTML=trips.length?trips.map((t,idx)=>{
     const lines=stops.map((s,i)=>{
       const cur=t.arrivals?.[String(s.seq)];
       const prev=i? t.arrivals?.[String(stops[i-1].seq)] : null;
-      let gap="";
-      if(cur&&prev){
-        const d=(new Date(cur)-new Date(prev))/60000;
-        if(Number.isFinite(d)&&d>=0) gap=`${d.toFixed(1)} 分鐘`;
-      }
-      return `<div class="stop-line">
-        <div class="stop-dot"></div>
-        <div><div class="stop-name">${s.seq}. ${s.name}</div>${gap?`<div class="stop-gap">${gap}</div>`:""}</div>
-        <div class="stop-time">${hhmm(cur)}</div>
+      const gap=gapBetween(prev,cur);
+      const missing=!cur;
+      return `<div class="metro-stop-row ${missing?"missing":""}">
+        <div class="metro-stop-name-wrap">
+          <span class="metro-stop-seq">${String(s.seq).padStart(2,"0")}</span>
+          <span class="metro-stop-name">${esc(s.name)}</span>
+        </div>
+        <div class="metro-rail" aria-hidden="true"><span class="metro-dot"></span></div>
+        <div class="metro-stop-time">
+          <strong>${hhmm(cur)}</strong>
+          <span>${gap!=null?`+${gap.toFixed(1)} 分鐘`:i===0?"開出":"—"}</span>
+        </div>
       </div>`;
     }).join("");
+
+    const label=t.start_time?`${hhmm(t.start_time)} 班次`:`班次 ${idx+1}`;
+    const complete=t.duration_min!=null;
     return `<details class="trip-card" ${idx===0?"open":""}>
       <summary>
-        <div><div class="trip-title">${t.id||`班次 ${idx+1}`}</div><div class="trip-meta">${hhmm(t.start_time)} 開始 · ${t.confidence||"推算"}</div></div>
-        <div class="trip-duration">${t.duration_min!=null?mins(t.duration_min):"—"}</div>
+        <div class="trip-summary-main">
+          <div class="trip-title">${esc(label)}</div>
+          <div class="trip-meta">${esc(t.confidence||"推算")}可信度 · ${Object.keys(t.arrivals||{}).length}/${stops.length} 站有時間</div>
+        </div>
+        <div class="trip-duration-wrap">
+          <div class="trip-duration">${complete?mins(t.duration_min):"未完整"}</div>
+          <div class="trip-chevron">⌄</div>
+        </div>
       </summary>
-      <div class="trip-stops">${lines}</div>
+      <div class="metro-timeline">${lines}</div>
     </details>`;
-  }).join(""):`<div class="empty">當日未有班次資料</div>`;
+  }).join(""):`<div class="empty">當日暫時未有足夠 ETA 數據重組班次</div>`;
+}
+function renderDataStatus(v){
+  const demo=state.day.date==="demo" || state.date==="demo";
+  const pill=$("#dataStatusPill");
+  pill.textContent=demo?"示範數據":"KMB 真 ETA";
+  pill.classList.toggle("live",!demo);
+  const coverage=state.day.coverage;
+  const coverageText=coverage?.last_observed_at?` · 收集至 ${hhmm(coverage.last_observed_at)}`:"";
+  $("#statusText").textContent=`${state.route} · ${v.label} · ${demo?"示範數據":state.day.date}${coverageText}`;
+  $("#generatedAt").textContent=state.day.generated_at?`頁面更新 ${hhmm(state.day.generated_at)}`:"";
 }
 function render(){
   const v=currentVariant();
   if(!v){ $("#statusText").textContent="沒有可顯示的方向/服務"; return; }
   const segments=buildSegments(v);
+  renderTrips(v);
   renderKpis(v,segments);
   renderRankList($("#slowestList"),segments,"avg");
   renderRankList($("#volatileList"),segments,"range");
   renderSegments(v,segments);
-  renderTrips(v);
-  $("#statusText").textContent=`${state.route} · ${v.label} · ${state.day.date==="demo"?"示範數據":state.day.date}`;
-  $("#generatedAt").textContent=state.day.generated_at?`更新 ${hhmm(state.day.generated_at)}`:"";
+  renderDataStatus(v);
 }
 async function changeDate(date){
   state.date=date; state.day=await loadDay(date); state.route=null; state.variant=null;
@@ -182,6 +217,7 @@ async function boot(){
     fillRouteSelect(); fillVariantSelect(); render();
   }catch(e){
     $("#statusText").textContent=`讀取失敗：${e.message}`;
+    $("#dataStatusPill").textContent="錯誤";
   }
 }
 $("#routeSelect").addEventListener("change",e=>{state.route=e.target.value; state.variant=null; fillVariantSelect(); render();});

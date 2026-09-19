@@ -14,7 +14,10 @@
     <div>
       <div class="eyebrow">KMB ROUTE TIMING</div>
       <h1>272A / 900 行車時間</h1>
-      <p id="statusText">讀取數據中…</p>
+      <div class="status-row">
+        <span id="dataStatusPill" class="data-status">讀取中</span>
+        <p id="statusText">讀取數據中…</p>
+      </div>
     </div>
     <button id="refreshBtn" class="icon-btn" aria-label="重新整理">↻</button>
   </header>
@@ -36,13 +39,27 @@
     </section>
 
     <nav class="tabs" aria-label="頁面">
-      <button class="tab active" data-tab="overview">總覽</button>
+      <button class="tab active" data-tab="trips">逐班車</button>
+      <button class="tab" data-tab="overview">總覽</button>
       <button class="tab" data-tab="segments">站間分析</button>
-      <button class="tab" data-tab="trips">逐班車</button>
       <button class="tab" data-tab="method">方法</button>
     </nav>
 
-    <section id="overview" class="tab-panel active">
+    <section id="trips" class="tab-panel active">
+      <section class="card no-pad trip-log-card">
+        <div class="sticky-card-head">
+          <div>
+            <div class="section-kicker">ROUTE TIMELINE</div>
+            <h2>逐班車到站時間</h2>
+          </div>
+          <span id="tripCountPill" class="pill"></span>
+        </div>
+        <div id="routeLegend" class="route-legend"></div>
+        <div id="tripList" class="trip-list"></div>
+      </section>
+    </section>
+
+    <section id="overview" class="tab-panel">
       <div id="kpiGrid" class="kpi-grid"></div>
 
       <section class="card">
@@ -86,29 +103,16 @@
       </section>
     </section>
 
-    <section id="trips" class="tab-panel">
-      <section class="card no-pad">
-        <div class="sticky-card-head">
-          <div>
-            <div class="section-kicker">TRIP LOG</div>
-            <h2>逐班車到站時間</h2>
-          </div>
-          <span id="tripCountPill" class="pill"></span>
-        </div>
-        <div id="tripList" class="trip-list"></div>
-      </section>
-    </section>
-
     <section id="method" class="tab-panel">
       <section class="card prose">
         <div class="section-kicker">DATA METHOD</div>
         <h2>數據點樣嚟？</h2>
-        <p>本頁使用九巴 / 運輸署公開 ETA 資料。公開 API 提供的是「預計到站時間」，並沒有公開每架巴士的車牌、車隊編號或真實 GPS 到站 timestamp。</p>
-        <p>Collector 每分鐘保存 Route ETA snapshot，再把同一站連續出現、時間相近的 ETA 聚合成一次「推算到站事件」。相鄰站事件會按時間先後配對，用來估算站與站之間的車程。</p>
+        <p>本頁使用九巴 / 運輸署公開 Route ETA 資料。GitHub Actions 會自動收集，不需要開住你自己任何電腦。</p>
+        <p>公開 API 提供的是「預計到站時間」，並沒有公開每架巴士的車牌、車隊編號或官方 GPS actual-arrival timestamp。因此系統會把每分鐘的 ETA snapshot 聚合成「推算到站事件」，再按相鄰站時間先後重組成班次。</p>
         <div class="notice">
-          <strong>所以：</strong>頁面的「到站時間」應理解為 ETA-based inferred arrival，而不是營運商提供的官方 actual arrival time。短至 1–2 分鐘的站距尤其可能有約 1 分鐘級誤差。
+          <strong>時間定義：</strong>頁面右邊顯示的是 ETA-based inferred arrival（以公開 ETA 推算的到站時間），不是營運商提供的官方實際到站 timestamp。短站距可能有約 1 分鐘級誤差。
         </div>
-        <p>原始 snapshot 會保留在 SQLite，日後可以用更好的演算法重新計算，毋須重新收集歷史資料。</p>
+        <p>「最快／最慢／平均／中位數／P90」會由累積到的逐站推算時間計算，數據愈多，長期比較愈有參考價值。</p>
       </section>
     </section>
   </main>
