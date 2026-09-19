@@ -1,0 +1,19 @@
+name: Build previous day JSON
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "HK date YYYY-MM-DD (leave blank for yesterday)"
+        required: false
+  # This workflow only builds JSON if the SQLite DB is supplied another way.
+  # It is NOT used for minute-by-minute polling.
+
+jobs:
+  info:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "Minute-level KMB polling should run on an always-on collector."
+          echo "Use collector/collector.py there, then push daily JSON to this repo."
