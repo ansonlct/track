@@ -139,3 +139,8 @@ python3 -m http.server 8000
 瀏覽 `http://localhost:8000/`。
 
 > 成本提示：如果 repository 是 **public**，GitHub-hosted standard runners 一般不計 billable Actions minutes；如果是 private repo，長時間 collector 可能消耗你方案內的 Actions minutes。
+
+
+## v3 介面：全日班次矩陣
+
+「逐班車」頁會將同一方向當日所有重組班次放在同一個橫向時間表：左邊車站欄固定並以地鐵式路線連接，右邊每一欄代表第 1 班、第 2 班……；手機可左右滑動查看其餘班次。點擊任何班次欄會高亮整欄。

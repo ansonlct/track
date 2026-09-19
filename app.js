@@ -139,50 +139,97 @@ function gapBetween(prev,cur){
   return Number.isFinite(d)&&d>=0&&d<60 ? d : null;
 }
 function renderTrips(v){
-  const stops=v.stops||[], trips=v.trips||[];
+  const stops=v.stops||[];
+  const trips=[...(v.trips||[])].sort((a,b)=>{
+    const aa=a.start_time?new Date(a.start_time).getTime():Number.MAX_SAFE_INTEGER;
+    const bb=b.start_time?new Date(b.start_time).getTime():Number.MAX_SAFE_INTEGER;
+    return aa-bb;
+  });
+  const tripList=$("#tripList");
   $("#tripCountPill").textContent=`${trips.length} 班`;
-  $("#routeLegend").innerHTML=stops.length?`
+
+  if(!stops.length){
+    $("#routeLegend").innerHTML="";
+    tripList.innerHTML='<div class="empty">暫時未有車站資料</div>';
+    return;
+  }
+
+  $("#routeLegend").innerHTML=`
     <div class="legend-start"><strong>${esc(stops[0].name)}</strong><span>起點</span></div>
     <div class="legend-arrow">→</div>
     <div class="legend-end"><strong>${esc(stops[stops.length-1].name)}</strong><span>${stops.length} 個站</span></div>
-  `:"";
+  `;
 
-  $("#tripList").innerHTML=trips.length?trips.map((t,idx)=>{
-    const lines=stops.map((s,i)=>{
-      const cur=t.arrivals?.[String(s.seq)];
-      const prev=i? t.arrivals?.[String(stops[i-1].seq)] : null;
-      const gap=gapBetween(prev,cur);
-      const missing=!cur;
-      return `<div class="metro-stop-row ${missing?"missing":""}">
-        <div class="metro-stop-name-wrap">
-          <span class="metro-stop-seq">${String(s.seq).padStart(2,"0")}</span>
-          <span class="metro-stop-name">${esc(s.name)}</span>
-        </div>
-        <div class="metro-rail" aria-hidden="true"><span class="metro-dot"></span></div>
-        <div class="metro-stop-time">
-          <strong>${hhmm(cur)}</strong>
-          <span>${gap!=null?`+${gap.toFixed(1)} 分鐘`:i===0?"開出":"—"}</span>
-        </div>
-      </div>`;
-    }).join("");
+  if(!trips.length){
+    tripList.innerHTML='<div class="empty">當日暫時未有足夠 ETA 數據重組班次</div>';
+    return;
+  }
 
-    const label=t.start_time?`${hhmm(t.start_time)} 班次`:`班次 ${idx+1}`;
+  const firstTrip=trips.find(t=>t.start_time)?.start_time;
+  const lastTrip=[...trips].reverse().find(t=>t.start_time)?.start_time;
+  const hint=`${firstTrip?hhmm(firstTrip):"—"}–${lastTrip?hhmm(lastTrip):"—"} · 左右滑動查看更多班次`;
+
+  let cells=`
+    <div class="matrix-corner matrix-header-cell">
+      <div class="matrix-corner-title">車站</div>
+      <div class="matrix-corner-sub">${esc(hint)}</div>
+    </div>`;
+
+  trips.forEach((t,idx)=>{
     const complete=t.duration_min!=null;
-    return `<details class="trip-card" ${idx===0?"open":""}>
-      <summary>
-        <div class="trip-summary-main">
-          <div class="trip-title">${esc(label)}</div>
-          <div class="trip-meta">${esc(t.confidence||"推算")}可信度 · ${Object.keys(t.arrivals||{}).length}/${stops.length} 站有時間</div>
-        </div>
-        <div class="trip-duration-wrap">
-          <div class="trip-duration">${complete?mins(t.duration_min):"未完整"}</div>
-          <div class="trip-chevron">⌄</div>
-        </div>
-      </summary>
-      <div class="metro-timeline">${lines}</div>
-    </details>`;
-  }).join(""):`<div class="empty">當日暫時未有足夠 ETA 數據重組班次</div>`;
+    cells+=`<div class="matrix-trip-head matrix-header-cell" data-trip="${idx}">
+      <strong>第${idx+1}班</strong>
+      <span>${t.start_time?hhmm(t.start_time):"—"}</span>
+      <small>${complete?mins(t.duration_min):""}</small>
+    </div>`;
+  });
+
+  stops.forEach((s,stopIdx)=>{
+    const isFirst=stopIdx===0, isLast=stopIdx===stops.length-1;
+    cells+=`<div class="matrix-station-cell ${isFirst?'first':''} ${isLast?'last':''}">
+      <span class="matrix-line" aria-hidden="true"></span>
+      <span class="matrix-dot" aria-hidden="true"></span>
+      <div class="matrix-station-copy">
+        <strong>${esc(`${s.seq}. ${s.name}`)}</strong>
+        <span>${isFirst?'起點':isLast?'終點':''}</span>
+      </div>
+    </div>`;
+
+    trips.forEach((t,tripIdx)=>{
+      const cur=t.arrivals?.[String(s.seq)];
+      const prev=stopIdx? t.arrivals?.[String(stops[stopIdx-1].seq)] : null;
+      const gap=gapBetween(prev,cur);
+      const tooltip=cur
+        ? `${s.name} · 第${tripIdx+1}班 · ${hhmm(cur)}${gap!=null?` · 較上一站 +${gap.toFixed(1)} 分鐘`:''}`
+        : `${s.name} · 第${tripIdx+1}班 · 暫無時間`;
+      cells+=`<div class="matrix-time-cell ${cur?'':'missing'}" data-trip="${tripIdx}" title="${esc(tooltip)}">
+        <strong>${hhmm(cur)}</strong>
+        ${gap!=null?`<span>+${gap.toFixed(1)}m</span>`:'<span>&nbsp;</span>'}
+      </div>`;
+    });
+  });
+
+  tripList.innerHTML=`
+    <div class="matrix-scroll-hint" aria-hidden="true"><span>←</span> 左右滑動睇其他班次 <span>→</span></div>
+    <div class="trip-matrix-scroll" tabindex="0" aria-label="所有班次逐站到站時間，可左右滑動">
+      <div class="trip-matrix-grid" style="--trip-count:${trips.length}">${cells}</div>
+    </div>`;
+
+  const scroller=tripList.querySelector('.trip-matrix-scroll');
+  const grid=tripList.querySelector('.trip-matrix-grid');
+  grid?.addEventListener('click',e=>{
+    const target=e.target.closest('[data-trip]');
+    if(!target) return;
+    const n=target.dataset.trip;
+    grid.querySelectorAll('.trip-focus').forEach(x=>x.classList.remove('trip-focus'));
+    grid.querySelectorAll(`[data-trip="${n}"]`).forEach(x=>x.classList.add('trip-focus'));
+  });
+  scroller?.addEventListener('scroll',()=>{
+    const hintEl=tripList.querySelector('.matrix-scroll-hint');
+    if(hintEl && scroller.scrollLeft>18) hintEl.classList.add('fade');
+  },{passive:true});
 }
+
 function renderDataStatus(v){
   const demo=state.day.date==="demo" || state.date==="demo";
   const pill=$("#dataStatusPill");
