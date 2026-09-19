@@ -3,59 +3,105 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b0f14">
+  <meta name="theme-color" content="#0a0f15">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="272A / 900 九巴逐站行車時間與班次比較">
   <title>九巴行車時間監察｜272A / 900</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <div class="ambient ambient-a" aria-hidden="true"></div>
+  <div class="ambient ambient-b" aria-hidden="true"></div>
+
   <header class="app-header">
-    <div>
-      <div class="eyebrow">KMB ROUTE TIMING</div>
-      <h1>272A / 900 行車時間</h1>
+    <div class="brand-block">
+      <div class="brand-line">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span class="eyebrow">KMB ROUTE TIMING</span>
+      </div>
+      <h1>272A / 900 <span>行車時間</span></h1>
       <div class="status-row">
-        <span id="dataStatusPill" class="data-status">讀取中</span>
+        <span id="dataStatusPill" class="data-status loading"><i></i>讀取中</span>
         <p id="statusText">讀取數據中…</p>
       </div>
     </div>
-    <button id="refreshBtn" class="icon-btn" aria-label="重新整理">↻</button>
+    <button id="refreshBtn" class="icon-btn" type="button" aria-label="重新整理數據" title="重新整理">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.3 6.7L4 9m16 6-2.3 2.3A7 7 0 0 1 5.5 15"/></svg>
+    </button>
   </header>
 
   <main>
-    <section class="controls card">
-      <label>
-        路線
-        <select id="routeSelect"></select>
+    <section class="controls card" aria-label="篩選條件">
+      <label class="field">
+        <span class="field-label">路線</span>
+        <span class="select-shell"><select id="routeSelect" aria-label="選擇路線"></select></span>
       </label>
-      <label>
-        方向 / 服務
-        <select id="variantSelect"></select>
+      <label class="field field-wide">
+        <span class="field-label">方向 / 服務</span>
+        <span class="select-shell"><select id="variantSelect" aria-label="選擇方向及服務"></select></span>
       </label>
-      <label>
-        日期
-        <select id="dateSelect"></select>
+      <label class="field">
+        <span class="field-label">日期</span>
+        <span class="select-shell"><select id="dateSelect" aria-label="選擇日期"></select></span>
       </label>
     </section>
 
     <nav class="tabs" aria-label="頁面">
-      <button class="tab active" data-tab="trips">全日班次</button>
-      <button class="tab" data-tab="overview">總覽</button>
-      <button class="tab" data-tab="segments">站間分析</button>
-      <button class="tab" data-tab="method">方法</button>
+      <button class="tab active" data-tab="trips" type="button"><span>全日班次</span></button>
+      <button class="tab" data-tab="overview" type="button"><span>總覽</span></button>
+      <button class="tab" data-tab="segments" type="button"><span>站間分析</span></button>
+      <button class="tab" data-tab="method" type="button"><span>方法</span></button>
     </nav>
 
-    <section id="trips" class="tab-panel active">
+    <section id="trips" class="tab-panel active" aria-live="polite">
       <section class="card no-pad trip-log-card">
         <div class="sticky-card-head">
           <div>
             <div class="section-kicker">ROUTE TIMELINE</div>
             <h2>全日班次到站時間</h2>
+            <p class="section-desc">點班次睇整條行車時間；點車站就可以橫向比較所有班次。</p>
           </div>
-          <span id="tripCountPill" class="pill"></span>
+          <span id="tripCountPill" class="pill">—</span>
         </div>
+
         <div id="routeLegend" class="route-legend"></div>
-        <div id="tripList" class="trip-list"></div>
+
+        <div id="tripNavigator" class="trip-navigator" hidden>
+          <div class="nav-buttons" role="group" aria-label="切換班次">
+            <button id="firstTripBtn" class="mini-btn" type="button" aria-label="第一班" title="第一班">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 6l-7 6 7 6"/></svg>
+            </button>
+            <button id="prevTripBtn" class="mini-btn" type="button" aria-label="上一班" title="上一班">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-7 6 7 6"/></svg>
+            </button>
+          </div>
+          <div class="trip-scrubber-wrap">
+            <div class="trip-scrubber-copy">
+              <strong id="selectedTripLabel">第 1 班</strong>
+              <span id="selectedTripMeta">—</span>
+            </div>
+            <input id="tripRange" class="trip-range" type="range" min="1" max="1" value="1" step="1" aria-label="快速跳到指定班次">
+          </div>
+          <div class="nav-buttons" role="group" aria-label="切換班次">
+            <button id="nextTripBtn" class="mini-btn" type="button" aria-label="下一班" title="下一班">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 7 6-7 6"/></svg>
+            </button>
+            <button id="lastTripBtn" class="mini-btn" type="button" aria-label="最後一班" title="最後一班">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M6 6l7 6-7 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="tripList" class="trip-list">
+          <div class="skeleton-wrap" aria-hidden="true">
+            <div class="skeleton skeleton-h"></div>
+            <div class="skeleton-row"><i></i><b></b></div>
+            <div class="skeleton-row"><i></i><b></b></div>
+            <div class="skeleton-row"><i></i><b></b></div>
+            <div class="skeleton-row"><i></i><b></b></div>
+          </div>
+        </div>
       </section>
     </section>
 
@@ -87,12 +133,12 @@
 
     <section id="segments" class="tab-panel">
       <section class="card no-pad">
-        <div class="sticky-card-head">
+        <div class="sticky-card-head compact-head">
           <div>
             <div class="section-kicker">SEGMENT ANALYSIS</div>
             <h2>站與站之間</h2>
           </div>
-          <select id="segmentSort" class="small-select">
+          <select id="segmentSort" class="small-select" aria-label="站間排序方式">
             <option value="seq">按站序</option>
             <option value="avgDesc">平均最慢</option>
             <option value="maxDesc">最慢紀錄</option>
@@ -109,10 +155,8 @@
         <h2>數據點樣嚟？</h2>
         <p>本頁使用九巴 / 運輸署公開 Route ETA 資料。GitHub Actions 會自動收集，不需要開住你自己任何電腦。</p>
         <p>公開 API 提供的是「預計到站時間」，並沒有公開每架巴士的車牌、車隊編號或官方 GPS actual-arrival timestamp。因此系統會把每分鐘的 ETA snapshot 聚合成「推算到站事件」，再按相鄰站時間先後重組成班次。</p>
-        <div class="notice">
-          <strong>時間定義：</strong>頁面右邊顯示的是 ETA-based inferred arrival（以公開 ETA 推算的到站時間），不是營運商提供的官方實際到站 timestamp。短站距可能有約 1 分鐘級誤差。
-        </div>
-        <p>「最快／最慢／平均／中位數／P90」會由累積到的逐站推算時間計算，數據愈多，長期比較愈有參考價值。</p>
+        <div class="notice"><strong>時間定義：</strong>右邊顯示 ETA-based inferred arrival（以公開 ETA 推算的到站時間），並非營運商官方 actual-arrival timestamp；短站距可能有約 1 分鐘級誤差。</div>
+        <p>「最快／最慢／平均／中位數／P90」由累積到的逐站推算時間計算，數據愈多，長期比較愈有參考價值。</p>
       </section>
     </section>
   </main>
@@ -122,6 +166,7 @@
     <span id="generatedAt"></span>
   </footer>
 
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./app.js"></script>
 </body>
 </html>
